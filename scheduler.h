@@ -69,6 +69,8 @@ extern "C" {
 	#define schedSCHEDULER_TASK_PERIOD pdMS_TO_TICKS( 100 )			/** So.. The scheduler task is running with T = 0.1 seconds..?? Seems pretty slow **/
 #endif /* schedUSE_SCHEDULER_TASK */
 
+typedef enum sch_wake_args_t{NEW_MULTIPLE, CHECK_TIME} sch_wake_args_t;
+
 /* This function must be called before any other function call from scheduler.h. */
 void vSchedulerInit( void );
 
@@ -95,6 +97,8 @@ void vSchedulerPeriodicTaskDelete( TaskHandle_t xTaskHandle );
 
 /* Starts scheduling tasks. */
 void vSchedulerStart( void );
+
+int wake_scheduler_logic(sch_wake_args_t ftype, TickType_t arg);
 
 #ifdef __cplusplus
 }

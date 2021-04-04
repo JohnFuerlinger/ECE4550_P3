@@ -34,9 +34,9 @@ static void testFunc1( void *pvParameters )
 	 ** likely not be accurate if using a different baud.
 	 **/
 	#if (RUN_TASKSET == 1)
-		#define T1_LOOPS	6800 /* 100 ms */
+		#define T1_LOOPS	6000 /* 100 ms */
 	#elif (RUN_TASKSET == 2)
-		#define T1_LOOPS	6800 /* 100 ms */
+		#define T1_LOOPS	6000 /* 100 ms */
 	#else
 		#error Valid values for RUN_TASKSET are either 1 or 2
 	#endif

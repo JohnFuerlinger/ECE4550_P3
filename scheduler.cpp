@@ -297,6 +297,8 @@ void vSchedulerPeriodicTaskCreate( TaskFunction_t pvTaskCode, const char *pcName
 		sprintf(strBuf, "Creating task: %s with C = %d, T = %d, D = %d   (all units in tics)", pxNewTCB->pcName, pxNewTCB->xMaxExecTime, pxNewTCB->xPeriod, pxNewTCB->xRelativeDeadline);
 		Serial.println(strBuf);	
 	#endif
+	
+	wake_scheduler_logic(NEW_MULTIPLE, xDeadlineTick);
 
 }
 
@@ -535,7 +537,10 @@ static void prvSetInitialDeadlines( void ) {
 	 * the scheduler task occur to block the periodic task. */
 	static void prvExecTimeExceedHook( SchedTCB_t *pxCurrentTask )
 	{
-		Serial.println("Time exceeded hook.");
+		Serial.print("Time exceeded hook, ");
+		Serial.print(pxCurrentTask->pcName);
+		Serial.print(",  ExecTime= ");
+		Serial.println(pxCurrentTask->xExecTime);
         pxCurrentTask->xMaxExecTimeExceeded = pdTRUE;
         /* Is not suspended yet, but will be suspended by the scheduler later. */
         pxCurrentTask->xSuspended = pdTRUE;
@@ -581,6 +586,8 @@ static void prvSetInitialDeadlines( void ) {
 			{
 				pxTCB->xMaxExecTimeExceeded = pdFALSE;
 				vTaskSuspend( *pxTCB->pxTaskHandle );
+				sprintf(msgBuf, "\t(Sch) SUSPENDING: %s", pxTCB->pcName);
+				Serial.println(msgBuf);
 			}
 			if( pdTRUE == pxTCB->xSuspended )
 			{
@@ -594,6 +601,33 @@ static void prvSetInitialDeadlines( void ) {
 			#endif /* schedUSE_TIMING_ERROR_DETECTION_EXECUTION_TIME */
 		}
 		return;
+	}
+	
+	/** This function will either save-off a new multiple value at which
+	 ** the scheduler should wake, or will determine whether the scheduler should
+	 ** wake up given a current tick count. Note: this function has space for 
+	 ** 10 "critical" frequencies at which to wake up the scheduler
+	 **/
+	int wake_scheduler_logic(sch_wake_args_t ftype, TickType_t arg) {
+		static TickType_t freq_list[10];
+		static int num_crit_pts = 0;
+		int cnt = 0;
+		switch (ftype) {
+			case NEW_MULTIPLE:
+					/** We got a new critical point to keep track of **/
+					freq_list[num_crit_pts] = arg;
+					num_crit_pts++;
+				break;
+				
+			case CHECK_TIME:
+					for (cnt = 0; cnt < num_crit_pts; cnt++) {
+						if (arg % freq_list[cnt] == 0) {
+							return 1; /** We need to wake the scheduler **/
+						}
+					}
+				break;
+		}
+		return 0; /** By default do not wake scheduler **/
 	}
 
 	/* Function code for the scheduler task. */
@@ -702,12 +736,12 @@ static void prvSetInitialDeadlines( void ) {
 		}
 
 		#if( schedUSE_TIMING_ERROR_DETECTION_DEADLINE == 1 )    
-			xSchedulerWakeCounter++;      
-			if( xSchedulerWakeCounter == schedSCHEDULER_TASK_PERIOD )
-			{
-				xSchedulerWakeCounter = 0;        
+			xSchedulerWakeCounter++;
+			
+			if (wake_scheduler_logic(CHECK_TIME, xSchedulerWakeCounter)) {
 				prvWakeScheduler();
 			}
+
 		#endif /* schedUSE_TIMING_ERROR_DETECTION_DEADLINE */
 	}
 #endif /* schedUSE_SCHEDULER_TASK */
