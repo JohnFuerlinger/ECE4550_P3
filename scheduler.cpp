@@ -4,6 +4,11 @@
 
 #define schedUSE_TCB_ARRAY 1
 
+extern TaskHandle_t xHandle1;
+extern TaskHandle_t xHandle2;
+extern TaskHandle_t xHandle3;
+extern TaskHandle_t xHandle4;
+
 /** TODO: Add/subtract from this as needed. It needs to be cleaned up **/
 
 /* Extended Task control block for managing periodic tasks within this library. */
@@ -65,11 +70,11 @@ static TickType_t xSystemStartTime = 0;
 static void prvPeriodicTaskCode( void *pvParameters );
 static void prvCreateAllTasks( void );
 
-static void prvSetFixedPriorities( void );
+void prvSetFixedPriorities( void );
 
 /** TODO: Implement this for EDF & HDVF **/
-void prvSetEDFPriorities( void );
-void prvSetHVDFPriorities( void );
+void prvSetEDFPriorities( int debug_prnt );
+void prvSetHVDFPriorities( int debug_prnt );
 
 
 	
@@ -340,7 +345,7 @@ static void prvCreateAllTasks( void )
 
 #if( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_RMS || schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_DMS)
 	/* Initiazes fixed priorities of all periodic tasks with respect to RMS policy. */
-static void prvSetFixedPriorities( void )
+void prvSetFixedPriorities( void )
 {
 	#if PRINT_HEADER
 		#if (schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_RMS)
@@ -407,11 +412,18 @@ static void prvSetFixedPriorities( void )
 
 #if ( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_EDF )
 /** TODO: Implement this for DPS algos **/
-void prvSetEDFPriorities( void ) {
+void prvSetEDFPriorities( int debug_prnt ) {
+	
+	#if PRINT_HEADER
+		static int first = 1;
+		if (debug_prnt && first) {
+			Serial.println("\nSetting initial priorities (EDF)...");
+		}
+	#endif /* PRINT_HEADER */	
 	
 	UBaseType_t xIndex;
 	TickType_t furthest_dl;
-	UBaseType_t idx_tracker = 0;
+	UBaseType_t idx_tracker;
 	UBaseType_t xIndex_2 = 0;
 	UBaseType_t prio = 1;
 	
@@ -424,6 +436,7 @@ void prvSetEDFPriorities( void ) {
 	for (xIndex = 0; xIndex < xTaskCounter; xIndex++) {
 		
 		furthest_dl = xTaskGetTickCount(); /* Set to closest dl possible initially */
+		idx_tracker = 0;
 		
 		/** Searching for the furthest deadline **/
 		for (xIndex_2 = 0; xIndex_2 < xTaskCounter; xIndex_2++) {
@@ -441,7 +454,44 @@ void prvSetEDFPriorities( void ) {
 		xTCBArray[idx_tracker].uxPriority = prio;
 		xTCBArray[idx_tracker].xPriorityIsSet = pdTRUE;
 		prio++;
-	}	
+		
+		
+	}
+	
+	if (!first) {
+		for (xIndex = 0; xIndex < xTaskCounter; xIndex++) {
+			switch (xIndex) {
+				case 0:
+					vTaskPrioritySet(xHandle1, xTCBArray[xIndex].uxPriority);
+					break;
+				case 1:
+					vTaskPrioritySet(xHandle2, xTCBArray[xIndex].uxPriority);
+					break;
+				case 2:
+					vTaskPrioritySet(xHandle3, xTCBArray[xIndex].uxPriority);
+					break;
+				case 3:
+					vTaskPrioritySet(xHandle4, xTCBArray[xIndex].uxPriority);
+					break;
+			}
+		}		
+	}
+	
+	/** Printing out each tasks priority after this initial set... **/
+	#if (PRINT_HEADER)
+		if (debug_prnt) {
+			for (xIndex = 0; xIndex < xTaskCounter; xIndex++) {
+				Serial.print("\t(Sch) Set: ");
+				Serial.print(xTCBArray[xIndex].pcName);
+				Serial.print(" priority: ");
+				Serial.println(xTCBArray[xIndex].uxPriority);
+			}
+			if (first) {
+				Serial.println("---------------END OF HEADER-----------------");
+				first = 0;
+			}
+		}
+	#endif /* PRINT_HEADER */
 }
 #endif
 
@@ -570,7 +620,7 @@ static void prvSetInitialDeadlines( void ) {
 		#endif
 		 
 		/** we only want to call the below hook when we actually miss a deadline **/
-		if (xTickCount > pxTCB->xAbsoluteDeadline && pxTCB->xWorkIsDone == pdFALSE && pxTCB->xExecutedOnce == pdTRUE) {
+		if (xTickCount >= pxTCB->xAbsoluteDeadline && pxTCB->xWorkIsDone == pdFALSE && pxTCB->xExecutedOnce == pdTRUE) {
 			prvDeadlineMissedHook( pxTCB );
 		}
 	}	
@@ -715,7 +765,7 @@ static void prvSetInitialDeadlines( void ) {
 			/** TODO: DPS for EDF **/
 			
 			#if ( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_EDF )
-				prvSetEDFPriorities();
+				prvSetEDFPriorities(1);
 			#endif
 			
 			/** TODO: DPS for HDVF **/
@@ -842,16 +892,16 @@ void vSchedulerInit( void )
  * have been created with API function before calling this function. */
 void vSchedulerStart( void )
 {
+	/** Set initial deadlines */
+	prvSetInitialDeadlines();
+	
 	#if( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_RMS || schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_DMS )
 		prvSetFixedPriorities();
 	#elif ( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_EDF )
-		prvSetEDFPriorities();
+		prvSetEDFPriorities(1);
 	#elif ( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_HVDF )
-		prvSetHVDFPriorities();
+		prvSetHVDFPriorities(1);
 	#endif /* schedSCHEDULING_POLICY */
-	
-	/** Set initial deadlines */
-	prvSetInitialDeadlines();
 
 	#if( schedUSE_SCHEDULER_TASK == 1 )
 		prvCreateSchedulerTask();

@@ -71,7 +71,7 @@ static void testFunc2( void *pvParameters )
 	 ** likely not be accurate if using a different baud.
 	 **/
 	#if (RUN_TASKSET == 1)
-		#define T2_LOOPS	14000 /* 200 ms */
+		#define T2_LOOPS	13500 /* 200 ms */
 	#elif (RUN_TASKSET == 2)
 		#define T2_LOOPS	10000 /* 150 ms */
 	#else
@@ -110,7 +110,7 @@ static void testFunc3( void *pvParameters )
 	#if (RUN_TASKSET == 1)
 		#define T3_LOOPS	10000 /* 150 ms */
 	#elif (RUN_TASKSET == 2)
-		#define T3_LOOPS	14000 /* 200 ms */
+		#define T3_LOOPS	13500 /* 200 ms */
 	#else
 		#error Valid values for RUN_TASKSET are either 1 or 2
 	#endif
