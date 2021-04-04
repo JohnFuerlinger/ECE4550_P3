@@ -37,7 +37,7 @@ extern "C" {
 #define schedSCHEDULING_POLICY_HVDF		3
 
 /** NOTE: UPDATE THE BELOW TO SELECT SCHEDULING POLICY **/
-#define schedSCHEDULING_POLICY schedSCHEDULING_POLICY_RMS
+#define schedSCHEDULING_POLICY schedSCHEDULING_POLICY_EDF
 
 /* Maximum number of periodic tasks that can be created. (Scheduler task is
  * not included) */

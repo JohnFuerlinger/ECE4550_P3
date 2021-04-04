@@ -65,11 +65,14 @@ static TickType_t xSystemStartTime = 0;
 static void prvPeriodicTaskCode( void *pvParameters );
 static void prvCreateAllTasks( void );
 
+static void prvSetFixedPriorities( void );
 
-#if( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_RMS || schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_DMS)
-	static void prvSetFixedPriorities( void );	
-#endif /* schedSCHEDULING_POLICY_RMS */
+/** TODO: Implement this for EDF & HDVF **/
+void prvSetEDFPriorities( void );
+void prvSetHVDFPriorities( void );
 
+
+	
 static void prvSetInitialDeadlines( void );
 
 #if( schedUSE_SCHEDULER_TASK == 1 )
@@ -269,11 +272,8 @@ void vSchedulerPeriodicTaskCreate( TaskFunction_t pvTaskCode, const char *pcName
 		pxNewTCB->xInUse = pdTRUE;
 	#endif /* schedUSE_TCB_ARRAY */
 	
-	#if( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_RMS || schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_DMS)
-		/* member initialization */
-        /* your implementation goes here */
-		pxNewTCB->xPriorityIsSet = pdFALSE;
-	#endif /* schedSCHEDULING_POLICY */	
+	/** Do any other member init here if needed **/
+	pxNewTCB->xPriorityIsSet = pdFALSE;
 	
 	#if( schedUSE_TIMING_ERROR_DETECTION_DEADLINE == 1 )
 		/* member initialization */
@@ -403,8 +403,55 @@ static void prvSetFixedPriorities( void )
 		Serial.println("---------------END OF HEADER-----------------");
 	#endif
 }
-
 #endif /* schedSCHEDULING_POLICY */
+
+#if ( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_EDF )
+/** TODO: Implement this for DPS algos **/
+void prvSetEDFPriorities( void ) {
+	
+	UBaseType_t xIndex;
+	TickType_t furthest_dl;
+	UBaseType_t idx_tracker = 0;
+	UBaseType_t xIndex_2 = 0;
+	UBaseType_t prio = 1;
+	
+	/** Set all the xPriorityIsSet's to pdFALSE **/
+	for (xIndex = 0; xIndex < xTaskCounter; xIndex++) {
+		xTCBArray[xIndex].xPriorityIsSet = pdFALSE;
+	}
+	
+	/** Now iterate through the tasks and re-assign priorities **/
+	for (xIndex = 0; xIndex < xTaskCounter; xIndex++) {
+		
+		furthest_dl = xTaskGetTickCount(); /* Set to closest dl possible initially */
+		
+		/** Searching for the furthest deadline **/
+		for (xIndex_2 = 0; xIndex_2 < xTaskCounter; xIndex_2++) {
+			
+			/** Skip over any task who's priority is already set **/
+			if (xTCBArray[xIndex_2].xPriorityIsSet == pdFALSE) {
+				if (xTCBArray[xIndex_2].xAbsoluteDeadline > furthest_dl) {
+					idx_tracker = xIndex_2;
+					furthest_dl = xTCBArray[xIndex_2].xAbsoluteDeadline;
+				}
+			}
+		}
+		
+		/** Setting the lowest priority **/
+		xTCBArray[idx_tracker].uxPriority = prio;
+		xTCBArray[idx_tracker].xPriorityIsSet = pdTRUE;
+		prio++;
+	}	
+}
+#endif
+
+
+#if 0
+void prvSetHVDFPriorities( void ) {
+	
+}
+#endif
+
 
 /** I don't think xAbsoluteDeadline is being initialized anywhere. This should 
  ** be called when vSchedulerStart is called, not when the tasks are created.
@@ -663,6 +710,20 @@ static void prvSetInitialDeadlines( void ) {
 			
 			#endif /* schedUSE_TIMING_ERROR_DETECTION_DEADLINE || schedUSE_TIMING_ERROR_DETECTION_EXECUTION_TIME */
 			
+			/** TODO: accurate measure of overhead **/
+			
+			/** TODO: DPS for EDF **/
+			
+			#if ( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_EDF )
+				prvSetEDFPriorities();
+			#endif
+			
+			/** TODO: DPS for HDVF **/
+			
+			#if ( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_HVDF )
+				prvSetHVDFPriorities();
+			#endif
+			
 			ulTaskNotifyTake( pdTRUE, portMAX_DELAY );
 		}
 	}
@@ -754,6 +815,8 @@ void vSchedulerInit( void )
 			Serial.println("Init scheduler (RMS)\n");
 		#elif (schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_DMS)
 			Serial.println("Init scheduler (DMS)\n");
+		#elif (schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_EDF)
+			Serial.println("Init scheduler (EDF)\n");
 		#endif
 		
 		/** Note: When I tested this, I found that tics occur at a frequency of 62 hz **/
@@ -780,7 +843,11 @@ void vSchedulerInit( void )
 void vSchedulerStart( void )
 {
 	#if( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_RMS || schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_DMS )
-		prvSetFixedPriorities();	
+		prvSetFixedPriorities();
+	#elif ( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_EDF )
+		prvSetEDFPriorities();
+	#elif ( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_HVDF )
+		prvSetHVDFPriorities();
 	#endif /* schedSCHEDULING_POLICY */
 	
 	/** Set initial deadlines */
