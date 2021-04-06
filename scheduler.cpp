@@ -787,6 +787,11 @@ static void prvSetInitialDeadlines( void ) {
 				prvSetHVDFPriorities(1);
 			#endif
 			
+			#if (AUGMENT_SCHEDULER == 1)
+				Serial.println("DELAYING THE SCHEDULER!");
+				delay(.05);
+			#endif
+			
 			ulTaskNotifyTake( pdTRUE, portMAX_DELAY );
 		}
 	}
