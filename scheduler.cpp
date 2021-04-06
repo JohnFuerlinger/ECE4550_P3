@@ -9,8 +9,6 @@ extern TaskHandle_t xHandle2;
 extern TaskHandle_t xHandle3;
 extern TaskHandle_t xHandle4;
 
-/** TODO: Add/subtract from this as needed. It needs to be cleaned up **/
-
 /* Extended Task control block for managing periodic tasks within this library. */
 typedef struct xExtended_TCB
 {
@@ -31,6 +29,7 @@ typedef struct xExtended_TCB
 	BaseType_t xWorkIsDone; 		/* pdFALSE if the job is not finished, pdTRUE if the job is finished. */
 	
 	UBaseType_t xValue;				/** Value of the task 'V' **/
+	float xValueDensity;
 
 	#if( schedUSE_TCB_ARRAY == 1 )
 		BaseType_t xPriorityIsSet; 	/* pdTRUE if the priority is assigned. */
@@ -72,12 +71,9 @@ static void prvCreateAllTasks( void );
 
 void prvSetFixedPriorities( void );
 
-/** TODO: Implement this for EDF & HDVF **/
 void prvSetEDFPriorities( int debug_prnt );
 void prvSetHVDFPriorities( int debug_prnt );
 
-
-	
 static void prvSetInitialDeadlines( void );
 
 #if( schedUSE_SCHEDULER_TASK == 1 )
@@ -107,12 +103,10 @@ static void prvSetInitialDeadlines( void );
 	static BaseType_t xTaskCounter = 0;
 #endif /* schedUSE_TCB_ARRAY */
 
-/** TODO: This could be used to track overhead **/
 #if( schedUSE_SCHEDULER_TASK )
-	static TickType_t xSchedulerWakeCounter = 0; /* useful. why? */
-	static TaskHandle_t xSchedulerHandle = NULL; /* useful. why? */
+	static TickType_t xSchedulerWakeCounter = 0;
+	static TaskHandle_t xSchedulerHandle = NULL;
 #endif /* schedUSE_SCHEDULER_TASK */
-
 
 #if( schedUSE_TCB_ARRAY == 1 )
 	/* Returns index position in xTCBArray of TCB with same task handle as parameter. */
@@ -151,7 +145,6 @@ static void prvSetInitialDeadlines( void );
 	/* Find index for an empty entry in xTCBArray. Returns -1 if there is no empty entry. */
 	static BaseType_t prvFindEmptyElementIndexTCB( void )
 	{
-		/* your implementation goes here */
 		UBaseType_t uxIndex;
 		for( uxIndex = 0; uxIndex < schedMAX_NUMBER_OF_PERIODIC_TASKS; uxIndex++)
 		{
@@ -165,7 +158,6 @@ static void prvSetInitialDeadlines( void );
 	/* Remove a pointer to extended TCB from xTCBArray. */
 	static void prvDeleteTCBFromArray( BaseType_t xIndex )
 	{
-		/* your implementation goes here */
 		//Make sure the index is valid before checking that the element is in use so we dont crash
 		configASSERT( xIndex >= 0 && xIndex < schedMAX_NUMBER_OF_PERIODIC_TASKS);
 		//Make sure the element is in use before changing it for no reason
@@ -177,10 +169,6 @@ static void prvSetInitialDeadlines( void );
 	}
 	
 #endif /* schedUSE_TCB_ARRAY */
-
-/**  TODO: This should be cleaned up. I want to get tasks actually running at or 
- **  close to their WCET's
- **/
 
 /* The whole function code that is executed by every periodic task.
  * This function wraps the task code specified by the user. */
@@ -202,9 +190,8 @@ static void prvPeriodicTaskCode( void *pvParameters )
 	}
 	
 	#if( schedUSE_TIMING_ERROR_DETECTION_DEADLINE == 1 )
-        /* your implementation goes here */
-			//Set this task as ExecutedOnce for checking whether it has been executed but not finished later
-			pxThisTask->xExecutedOnce = pdTRUE;
+		//Set this task as ExecutedOnce for checking whether it has been executed but not finished later
+		pxThisTask->xExecutedOnce = pdTRUE;
 	#endif /* schedUSE_TIMING_ERROR_DETECTION_DEADLINE */
     
 	if( 0 == pxThisTask->xReleaseTime )
@@ -224,20 +211,11 @@ static void prvPeriodicTaskCode( void *pvParameters )
 		 ** we're checking the correct deadlines for each task.
 		 **/
 		pxThisTask->xAbsoluteDeadline = pxThisTask->xLastWakeTime + pxThisTask->xRelativeDeadline;
-		
 		pxThisTask->xWorkIsDone = pdTRUE;
-		
-		
-				
 		pxThisTask->xExecTime = 0;
-        
 		xTaskDelayUntil(&pxThisTask->xLastWakeTime, pxThisTask->xPeriod);
 	}
 }
-
-/** TODO: This will require modification as new vars are added to the TCB struct **/
-
-/** NOTE: Also should clean it up **/
 
 /* Creates a periodic task. */
 void vSchedulerPeriodicTaskCreate( TaskFunction_t pvTaskCode, const char *pcName, UBaseType_t uxStackDepth, void *pvParameters, UBaseType_t uxPriority,
@@ -266,8 +244,6 @@ void vSchedulerPeriodicTaskCreate( TaskFunction_t pvTaskCode, const char *pcName
 	
 	pxNewTCB->xValue = xValue;
 	
-    /* Populate the rest */
-    /* your implementation goes here */
 	
 	pxNewTCB->xRelativeDeadline = xDeadlineTick;
 	pxNewTCB->xMaxExecTime = xMaxExecTimeTick;
@@ -281,8 +257,6 @@ void vSchedulerPeriodicTaskCreate( TaskFunction_t pvTaskCode, const char *pcName
 	pxNewTCB->xPriorityIsSet = pdFALSE;
 	
 	#if( schedUSE_TIMING_ERROR_DETECTION_DEADLINE == 1 )
-		/* member initialization */
-        /* your implementation goes here */
 		pxNewTCB->xExecutedOnce = pdFALSE;
 	#endif /* schedUSE_TIMING_ERROR_DETECTION_DEADLINE */
 	
@@ -299,23 +273,29 @@ void vSchedulerPeriodicTaskCreate( TaskFunction_t pvTaskCode, const char *pcName
 	#if PRINT_HEADER
 		/** Tell user various info when tasks are created **/	
 		char strBuf[100];
-		sprintf(strBuf, "Creating task: %s with C = %d, T = %d, D = %d   (all units in tics)", pxNewTCB->pcName, pxNewTCB->xMaxExecTime, pxNewTCB->xPeriod, pxNewTCB->xRelativeDeadline);
-		Serial.println(strBuf);	
+		sprintf(strBuf, "Creating task: %s with C = %d, T = %d, D = %d", pxNewTCB->pcName, pxNewTCB->xMaxExecTime, pxNewTCB->xPeriod, pxNewTCB->xRelativeDeadline);
+		
+		#if ( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_HVDF )
+			Serial.print(strBuf);
+			Serial.print(" V = ");
+			Serial.println(pxNewTCB->xValue);
+		#else
+			Serial.println(strBuf);
+		#endif
 	#endif
 	
+	/** Track the deadline for future reference. This will be used to determine when the 
+	 ** scheduler is woken up
+	 **/
 	wake_scheduler_logic(NEW_MULTIPLE, xDeadlineTick);
-
 }
 
 /* Deletes a periodic task. */
 void vSchedulerPeriodicTaskDelete( TaskHandle_t xTaskHandle )
 {
-	/* your implementation goes here */
 	#if( schedUSE_TCB_ARRAY == 1 )
-	//Get the element to remove
-	BaseType_t indexToRemove = prvGetTCBIndexFromHandle( xTaskHandle );
-	//Take the TCB out of the array
-	prvDeleteTCBFromArray( indexToRemove);
+		BaseType_t indexToRemove = prvGetTCBIndexFromHandle( xTaskHandle );
+		prvDeleteTCBFromArray( indexToRemove);
 	#endif
 	vTaskDelete( xTaskHandle );
 }
@@ -338,11 +318,6 @@ static void prvCreateAllTasks( void )
 	#endif /* schedUSE_TCB_ARRAY */
 }
 
-/** This func is only called once (I think..?). It was previously used for setting fixed
- ** priorities according to RMS/DMS.It can probably be reworked to assign initial priorities
- ** for other scheduling algorithms
- **/
-
 #if( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_RMS || schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_DMS)
 	/* Initiazes fixed priorities of all periodic tasks with respect to RMS policy. */
 void prvSetFixedPriorities( void )
@@ -354,7 +329,6 @@ void prvSetFixedPriorities( void )
 			Serial.println("\nSetting fixed priorities (DMS)...");
 		#endif	
 	#endif /* PRINT_HEADER */
-	
 	
 	BaseType_t xIter, xIndex;
 	BaseType_t xTrackIndex;
@@ -369,14 +343,12 @@ void prvSetFixedPriorities( void )
 	for( xIter = 0; xIter < xTaskCounter; xIter++ )
 	{
 		/** In this loop, we're finding a highest value **/
-		
 		xHighest = 0;
 		xTrackIndex = 0;
 
 		for( xIndex = 0; xIndex < xTaskCounter; xIndex++ )
 		{
 			/** In this loop, we track the index of the highest we found **/
-			
 			pxTCB = &xTCBArray[xIndex];
 			
 			if (pxTCB->xPriorityIsSet == pdFALSE) { /** Skip over tasks that we've already checked **/
@@ -454,9 +426,12 @@ void prvSetEDFPriorities( int debug_prnt ) {
 		xTCBArray[idx_tracker].uxPriority = prio;
 		xTCBArray[idx_tracker].xPriorityIsSet = pdTRUE;
 		prio++;
-		
-		
 	}
+	
+	/** At first in testing the scheduler was not respecting the new priorities assigned
+	 ** to the tasks by the EDF algorithm. The below code forces it to respect the EDF
+	 ** priorities
+	 **/
 	
 	if (!first) {
 		for (xIndex = 0; xIndex < xTaskCounter; xIndex++) {
@@ -496,16 +471,100 @@ void prvSetEDFPriorities( int debug_prnt ) {
 #endif
 
 
-#if 0
-void prvSetHVDFPriorities( void ) {
+#if ( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_HVDF )
+void prvSetHVDFPriorities( int debug_prnt ) {
 	
+	#if PRINT_HEADER
+		static int first = 1;
+		if (debug_prnt && first) {
+			Serial.println("\nSetting initial priorities (HVDF)...");
+		}
+	#endif /* PRINT_HEADER */	
+	
+	UBaseType_t xIndex;
+	float lowest_vd;
+	UBaseType_t idx_tracker;
+	UBaseType_t xIndex_2 = 0;
+	UBaseType_t prio = 1;
+	
+	/** Set all the xPriorityIsSet's to pdFALSE **/
+	for (xIndex = 0; xIndex < xTaskCounter; xIndex++) {
+		xTCBArray[xIndex].xPriorityIsSet = pdFALSE;
+	}
+	
+	/** Now iterate through the tasks and re-assign priorities **/
+	for (xIndex = 0; xIndex < xTaskCounter; xIndex++) {
+		
+		lowest_vd = 100000; /* Set to very large value */
+		idx_tracker = 0;
+		
+		/** Searching for the lowest value density **/
+		for (xIndex_2 = 0; xIndex_2 < xTaskCounter; xIndex_2++) {
+			
+			/** Skip over any task who's priority is already set **/
+			if (xTCBArray[xIndex_2].xPriorityIsSet == pdFALSE) {
+				TickType_t tmp_time_remaining = xTCBArray[xIndex_2].xMaxExecTime - xTCBArray[xIndex_2].xExecTime;
+				float tmpVD = ( (float)xTCBArray[xIndex_2].xValue / (float)tmp_time_remaining );
+				xTCBArray[xIndex_2].xValueDensity = tmpVD;
+				if (tmpVD < lowest_vd) {
+					idx_tracker = xIndex_2;
+					lowest_vd = tmpVD;
+				}
+			}
+		}
+		
+		/** Setting the lowest priority **/
+		xTCBArray[idx_tracker].uxPriority = prio;
+		xTCBArray[idx_tracker].xPriorityIsSet = pdTRUE;
+		prio++;
+	}
+	
+	/** At first in testing the scheduler was not respecting the new priorities assigned
+	 ** to the tasks by the EDF algorithm. The below code forces it to respect the EDF
+	 ** priorities
+	 **/
+	
+	if (!first) {
+		for (xIndex = 0; xIndex < xTaskCounter; xIndex++) {
+			switch (xIndex) {
+				case 0:
+					vTaskPrioritySet(xHandle1, xTCBArray[xIndex].uxPriority);
+					break;
+				case 1:
+					vTaskPrioritySet(xHandle2, xTCBArray[xIndex].uxPriority);
+					break;
+				case 2:
+					vTaskPrioritySet(xHandle3, xTCBArray[xIndex].uxPriority);
+					break;
+				case 3:
+					vTaskPrioritySet(xHandle4, xTCBArray[xIndex].uxPriority);
+					break;
+			}
+		}
+	}
+	
+	/** Printing out each tasks priority after this initial set... **/
+		if (debug_prnt) {
+			#if (PRINT_SCHEDULER_DEBUG)
+				for (xIndex = 0; xIndex < xTaskCounter; xIndex++) {
+					Serial.print("\t(Sch) Set: ");
+					Serial.print(xTCBArray[xIndex].pcName);
+					Serial.print(" prio: ");
+					Serial.print(xTCBArray[xIndex].uxPriority);
+					Serial.print(" VD: ");
+					Serial.println(xTCBArray[xIndex].xValueDensity);
+				}
+			#endif
+			
+			#if (PRINT_HEADER)
+				if (first) {
+					Serial.println("---------------END OF HEADER-----------------");
+					first = 0;
+				}
+			#endif
+		}
 }
 #endif
-
-
-/** I don't think xAbsoluteDeadline is being initialized anywhere. This should 
- ** be called when vSchedulerStart is called, not when the tasks are created.
- **/
 
 static void prvSetInitialDeadlines( void ) {
 	
@@ -517,33 +576,17 @@ static void prvSetInitialDeadlines( void ) {
 	}
 }
 
-/** NOTE: This was one of the most troubling functions in P2. This function should get a
- ** little extra attention this time around to find any potentially lingering bugs, 
- ** and also thoroughly cleaned up.
- **/
-
 #if( schedUSE_TIMING_ERROR_DETECTION_DEADLINE == 1 )
 
 	/* Recreates a deleted task that still has its information left in the task array (or list). */
 	static void prvPeriodicTaskRecreate( SchedTCB_t *pxTCB )
 	{
-				
-
-		
 		BaseType_t xReturnValue = xTaskCreate((TaskFunction_t)prvPeriodicTaskCode, pxTCB->pcName, pxTCB->uxStackDepth, pxTCB->pvParameters, pxTCB->uxPriority, pxTCB->pxTaskHandle);
-				                      		
+		
 		if( pdPASS == xReturnValue )
 		{
-			/* your implementation goes here */
-			
-			// deadline = releasetime + period
-			
-			//TickType_t curTick = xTaskGetTickCount(); curtick unused
-			
-			
+	
 			pxTCB->xReleaseTime = pxTCB->xLastWakeTime + pxTCB->xPeriod;
-			
-			
 			pxTCB->xExecutedOnce = pdFALSE;
 			pxTCB->xMaxExecTimeExceeded = pdFALSE;		
 			pxTCB->xSuspended = pdFALSE;			
@@ -561,10 +604,6 @@ static void prvSetInitialDeadlines( void ) {
 		}
 	}
 	
-	/** NOTE: So long as this was working properly before, this shouldn't be any
-	 ** different from RMS/DMS in contrast to the new schedulers
-	 **/
-
 	/* Called when a deadline of a periodic task is missed.
 	 * Deletes the periodic task that has missed it's deadline and recreate it.
 	 * The periodic task is released during next period. */
@@ -582,29 +621,13 @@ static void prvSetInitialDeadlines( void ) {
 		pxTCB->xExecTime = 0;
 		prvPeriodicTaskRecreate( pxTCB );	
 		
-		/* Need to reset next WakeTime for correct release. */
-		/* your implementation goes here */
-		
-		//Reset the wake time and absolute deadline again
 		pxTCB->xLastWakeTime = 0;
-		//Now that the last wake time has been reset, use the release time instead of wake time 
-		//since release time is now time to release instead of wake time
 		pxTCB->xAbsoluteDeadline = pxTCB->xRelativeDeadline + pxTCB->xReleaseTime;
 	}
 
 	/* Checks whether given task has missed deadline or not. */
 	static void prvCheckDeadline( SchedTCB_t *pxTCB, TickType_t xTickCount )
-	{ 
-		/* check whether deadline is missed. */     		
-		/* your implementation goes here */
-		
-		/** let's assume that before this point, the absolute deadline
-		 ** has already been calculated for pxTCB. I believe... the absolute
-		 ** deadline can be calculated by:
-		 ** xAbsoluteDeadline = xRelativeDeadline + ... actually not sure about this yet
-		 **
-		 ** Note: It looks like xAbsoluteDeadline currently isn't touched anywhere right now
-		 **/
+	{ 		
 		#if PRINT_SCHEDULER_DEBUG
 			char msgBuf[50];
 			sprintf(msgBuf, "\t(Sch) Chk DL: %s, DL: %d, Cur Time: %d", pxTCB->pcName, pxTCB->xAbsoluteDeadline, xTickCount);
@@ -619,7 +642,7 @@ static void prvSetInitialDeadlines( void ) {
 			Serial.println(msgBuf);
 		#endif
 		 
-		/** we only want to call the below hook when we actually miss a deadline **/
+		/** We only want to call the below hook when we actually miss a deadline **/
 		if (xTickCount >= pxTCB->xAbsoluteDeadline && pxTCB->xWorkIsDone == pdFALSE && pxTCB->xExecutedOnce == pdTRUE) {
 			prvDeadlineMissedHook( pxTCB );
 		}
@@ -655,15 +678,11 @@ static void prvSetInitialDeadlines( void ) {
 	/* Called by the scheduler task. Checks all tasks for any enabled
 	 * Timing Error Detection feature. */
 	static void prvSchedulerCheckTimingError( TickType_t xTickCount, SchedTCB_t *pxTCB )
-	{
-		/* your implementation goes here */
-		
+	{	
 		//No need to check if the task is not in use (i.e. it has been "deleted" from the array)
 		if(pxTCB->xInUse == pdTRUE)
 		{
 			#if( schedUSE_TIMING_ERROR_DETECTION_DEADLINE == 1 )						
-				/* check if task missed deadline */
-				/* your implementation goes here */
 				//need to set workDone as false if the deadline is wrong
 				//We know that since this task is in use, and the current tick is past the last wake time,
 				//the deadline has been missed
@@ -672,7 +691,6 @@ static void prvSetInitialDeadlines( void ) {
 				prvCheckDeadline( pxTCB, xTickCount );						
 			#endif /* schedUSE_TIMING_ERROR_DETECTION_DEADLINE */
 			
-
 			#if( schedUSE_TIMING_ERROR_DETECTION_EXECUTION_TIME == 1 )
 				#if PRINT_SCHEDULER_DEBUG
 					char msgBuf[50];
@@ -683,8 +701,10 @@ static void prvSetInitialDeadlines( void ) {
 			{
 				pxTCB->xMaxExecTimeExceeded = pdFALSE;
 				vTaskSuspend( *pxTCB->pxTaskHandle );
-				sprintf(msgBuf, "\t(Sch) SUSPENDING: %s", pxTCB->pcName);
-				Serial.println(msgBuf);
+				#if PRINT_SCHEDULER_DEBUG
+					sprintf(msgBuf, "\t(Sch) SUSPENDING: %s", pxTCB->pcName);
+					Serial.println(msgBuf);
+				#endif
 			}
 			if( pdTRUE == pxTCB->xSuspended )
 			{
@@ -753,25 +773,18 @@ static void prvSetInitialDeadlines( void ) {
 					{
 						pxTCB = &xTCBArray[ xIndex ];
 						
-						//Check task for timing errors
 						prvSchedulerCheckTimingError( xTickCount, pxTCB );
 					}
 				#endif /* schedUSE_TCB_ARRAY */
 			
 			#endif /* schedUSE_TIMING_ERROR_DETECTION_DEADLINE || schedUSE_TIMING_ERROR_DETECTION_EXECUTION_TIME */
 			
-			/** TODO: accurate measure of overhead **/
-			
-			/** TODO: DPS for EDF **/
-			
 			#if ( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_EDF )
 				prvSetEDFPriorities(1);
 			#endif
-			
-			/** TODO: DPS for HDVF **/
-			
+						
 			#if ( schedSCHEDULING_POLICY == schedSCHEDULING_POLICY_HVDF )
-				prvSetHVDFPriorities();
+				prvSetHVDFPriorities(1);
 			#endif
 			
 			ulTaskNotifyTake( pdTRUE, portMAX_DELAY );
@@ -797,12 +810,6 @@ static void prvSetInitialDeadlines( void ) {
 		vTaskNotifyGiveFromISR( xSchedulerHandle, &xHigherPriorityTaskWoken );
 		xTaskResumeFromISR(xSchedulerHandle);
 	}
-	
-	/** TODO: Shouldn't we only be relying on the scheduler task to be doing these checks for us..?
-	 ** This feels like an intrusion of user-space. If anything, we should increase the frequency
-	 ** of the scheduler task to every tick if we need to check that often. Even better, I should
-	 ** determing the critical times to check these errors and then only wake at those times.
-	 **/
 
 	/* Called every software tick. */
 	void vApplicationTickHook( void )
@@ -825,13 +832,8 @@ static void prvSetInitialDeadlines( void ) {
 		if( xCurrentTaskHandle != xSchedulerHandle && xCurrentTaskHandle != xTaskGetIdleTaskHandle() && flag == 1)
 		{
 			pxCurrentTask->xExecTime++;     
-		
-			/** NOTE: changed operator to be > instead of >= to achieve correct behavior. 
-			 ** This allows each task to execute at exactly its WCET and not fail these timing
-			 ** checks and be suspended. We only want to suspend tasks if they EXCEED their 
-			 ** WCET, not if they are currently at the WCET.
-			 **/
-			 
+			
+			/** This check should eventually be moved to the scheduler function **/
 			#if( schedUSE_TIMING_ERROR_DETECTION_EXECUTION_TIME == 1 )
             if( pxCurrentTask->xExecTime > pxCurrentTask->xMaxExecTime )
             {
@@ -846,9 +848,11 @@ static void prvSetInitialDeadlines( void ) {
 			#endif /* schedUSE_TIMING_ERROR_DETECTION_EXECUTION_TIME */
 		}
 
-		#if( schedUSE_TIMING_ERROR_DETECTION_DEADLINE == 1 )    
+		#if( schedUSE_TIMING_ERROR_DETECTION_DEADLINE == 1 )
+			/** Determine if the scheduler needs to be woken up, which is only
+			 ** true if we're currently at a "critical point"
+			 **/
 			xSchedulerWakeCounter++;
-			
 			if (wake_scheduler_logic(CHECK_TIME, xSchedulerWakeCounter)) {
 				prvWakeScheduler();
 			}
@@ -870,12 +874,7 @@ void vSchedulerInit( void )
 		#endif
 		
 		/** Note: When I tested this, I found that tics occur at a frequency of 62 hz **/
-		
-		/** TODO: 62 Hz is absurd. This should be much faster I think. I think the best thing
-		 ** would be to figure out the system clock rate and then determine the proper tick rate
-		 ** as well as scheduler wake frequency. Note that the Mega has a 16Mhz XTAL on it, so 
-		 ** the system clock speed is likely some prescalar of that.
-		 **/
+		/** TODO: 62 hz seems really slow. I'd eventually like to make this much faster **/
 		char strBuf[50];
 		sprintf(strBuf, "FreeRTOS TickRate period == 1/%d seconds", configTICK_RATE_HZ);
 		Serial.println(strBuf);

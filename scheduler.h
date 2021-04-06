@@ -37,7 +37,7 @@ extern "C" {
 #define schedSCHEDULING_POLICY_HVDF		3
 
 /** NOTE: UPDATE THE BELOW TO SELECT SCHEDULING POLICY **/
-#define schedSCHEDULING_POLICY schedSCHEDULING_POLICY_EDF
+#define schedSCHEDULING_POLICY schedSCHEDULING_POLICY_HVDF
 
 /* Maximum number of periodic tasks that can be created. (Scheduler task is
  * not included) */
@@ -65,8 +65,6 @@ extern "C" {
 	#define schedSCHEDULER_PRIORITY ( configMAX_PRIORITIES - 1 )
 	/* Stack size of the scheduler task. */
 	#define schedSCHEDULER_TASK_STACK_SIZE 200 
-	/* The period of the scheduler task in software ticks. */
-	#define schedSCHEDULER_TASK_PERIOD pdMS_TO_TICKS( 100 )			/** So.. The scheduler task is running with T = 0.1 seconds..?? Seems pretty slow **/
 #endif /* schedUSE_SCHEDULER_TASK */
 
 typedef enum sch_wake_args_t{NEW_MULTIPLE, CHECK_TIME} sch_wake_args_t;
@@ -98,6 +96,9 @@ void vSchedulerPeriodicTaskDelete( TaskHandle_t xTaskHandle );
 /* Starts scheduling tasks. */
 void vSchedulerStart( void );
 
+/* Saves off the relative deadline for each task, then determines whether we're at a critical
+ * scheduling point (meaning the scheduler needs to be woken)
+ */
 int wake_scheduler_logic(sch_wake_args_t ftype, TickType_t arg);
 
 #ifdef __cplusplus

@@ -1,9 +1,16 @@
-#include "scheduler.h"
+/** This starts 4 tasks using the task set from the project 3 specification. Preprocessor
+ ** directives can be used to change the task set from #1 to #2 as shown in the spec.
+ ** Similar preprocessor statements can also be used to change the baud rate
+ ** (not recommended), or amount of info printed out to the serial console.
+ **
+ ** Author: John Fuerlinger
+ ** Date: 04/05/21
+ **/
 
+#include "scheduler.h"
 
 /** Define desired baud below **/
 #define BAUDRATE					921600 /* highest typical baud */
-
 
 /** Make this either 1 or 2, for the 2 task sets the project description gives us **/
 #define RUN_TASKSET					2
@@ -13,10 +20,7 @@ TaskHandle_t xHandle2 = NULL;
 TaskHandle_t xHandle3 = NULL;
 TaskHandle_t xHandle4 = NULL;
 
-
-
-// the loop function runs over and over again forever
-void loop() {}
+void loop() { ; }
 
 static void testFunc1( void *pvParameters )
 {
@@ -71,7 +75,7 @@ static void testFunc2( void *pvParameters )
 	 ** likely not be accurate if using a different baud.
 	 **/
 	#if (RUN_TASKSET == 1)
-		#define T2_LOOPS	13500 /* 200 ms */
+		#define T2_LOOPS	13000 /* 200 ms */
 	#elif (RUN_TASKSET == 2)
 		#define T2_LOOPS	10000 /* 150 ms */
 	#else
@@ -110,7 +114,7 @@ static void testFunc3( void *pvParameters )
 	#if (RUN_TASKSET == 1)
 		#define T3_LOOPS	10000 /* 150 ms */
 	#elif (RUN_TASKSET == 2)
-		#define T3_LOOPS	13500 /* 200 ms */
+		#define T3_LOOPS	13000 /* 200 ms */
 	#else
 		#error Valid values for RUN_TASKSET are either 1 or 2
 	#endif
@@ -168,10 +172,10 @@ static void testFunc4( void *pvParameters )
 
 int main( void )
 {
-	char c1 = 'a';
-	char c2 = 'b';
-	char c3 = 'c';
-	char c4 = 'd';
+	char c1 = 'a'; /* Not used for anything important */
+	char c2 = 'b'; /* Not used for anything important */
+	char c3 = 'c'; /* Not used for anything important */
+	char c4 = 'd'; /* Not used for anything important */
 	/** Want baud as high as possible so we can use print statements
 	 ** more without screwing up the RTOS. The arduino serial monitor
 	 ** will not respect special chars in the terminal such as \010
@@ -181,19 +185,6 @@ int main( void )
 	Serial.begin(BAUDRATE);
 
 	vSchedulerInit();
-	
-	Serial.print("400 ms = ");
-	Serial.print(pdMS_TO_TICKS(400));
-	Serial.println("ticks.");
-	Serial.print("200 ms = ");
-	Serial.print(pdMS_TO_TICKS(200));
-	Serial.println("ticks.");
-	Serial.print("700 ms = ");
-	Serial.print(pdMS_TO_TICKS(700));
-	Serial.println("ticks.");
-	Serial.print("1000 ms = ");
-	Serial.print(pdMS_TO_TICKS(1000));
-	Serial.println("ticks.");
 		
 	#if (RUN_TASKSET == 1)
 		vSchedulerPeriodicTaskCreate(testFunc1, "t1", configMINIMAL_STACK_SIZE, &c1, 1, &xHandle1, pdMS_TO_TICKS(0), pdMS_TO_TICKS(400), pdMS_TO_TICKS(100), pdMS_TO_TICKS(400), 3);
